@@ -1,0 +1,109 @@
+﻿@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@using MudBlazor
+@inject DepartamentoService departamentoServico
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Business" Class="mr-2" />
+            @(Model.Id == 0 ? "Novo Departamento" : "Editar Departamento")
+        </MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <EditForm Model="Model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Nome"
+                                  @bind-Value="Model.Nome"
+                                  For="@(() => Model.Nome)"
+                                  Required="true"
+                                  Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Sigla"
+                                  @bind-Value="Model.Sigla"
+                                  For="@(() => Model.Sigla)"
+                                  Required="true"
+                                  Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="E-mail"
+                                  @bind-Value="Model.Email"
+                                  For="@(() => Model.Email)"
+                                  InputType="InputType.Email"
+                                  Immediate="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Telefone"
+                                  @bind-Value="Model.Telefone"
+                                  For="@(() => Model.Telefone)"
+                                  Immediate="true" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Disabled="@_saving"
+                   OnClick="SaveAsync">
+            <ChildContent>
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Salvando...</span>
+                }
+                else
+                {
+                    <span>@(Model.Id == 0 ? "Salvar" : "Atualizar")</span>
+                }
+            </ChildContent>
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter] public Departamento Model { get; set; } = new();
+    private bool _saving;
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            Console.WriteLine($"Salvando departamento: {Model.Nome}"); // Debug
+
+            if (Model.Id == 0)
+                await DepartamentoServico.AdicionarDepartamentoAsync(Model);
+            else
+                await DepartamentoServico.AtualizarDepartamentoAsync(Model);
+
+            Snackbar.Add(
+              Model.Id == 0
+                ? "Departamento criado com sucesso!"
+                : "Departamento atualizado com sucesso!",
+              Severity.Success);
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao salvar: {ex}"); // Debug
+            Snackbar.Add($"Erro: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,37 +1,46 @@
 ﻿@page "/departamentos"
 @using MBExemploEmpresa.Entidades
 @using MBExemploEmpresa.Servico
+@using MudBlazor
 @inject DepartamentoService departamentoServico
 @inject IDialogService DialogService
-@inject ISnackbar SnackBar
-
+@inject ISnackbar Snackbar
 <PageTitle>Departamentos</PageTitle>
 <MudCard>
 	<MudCardContent>
 		<MudText Typo="Typo.h6" Class="mb-4">Departamentos Cadastrados</MudText>
 		<MudPaper Class="d-flex justify-end flex-grow-1 mb-6" Elevation="0">
 			<MudButton Color="Color.Primary"
-				Variant="Variant.Filled"
-				StartIcon="@Icons.Material.Filled.Add">
+			Variant="Variant.Filled"
+			StartIcon="@Icons.Material.Filled.Add">
 				Adicionar Novo Departamento
 			</MudButton>
 		</MudPaper>
-		@if(_loading){
+		@if (_loading)
+		{
 			<MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="my-7" />
-		} else {
+
+		}
+		else
+		{
 			<MudDataGrid Items="@_departamentos"
-					SortMode="SortMode.Multiple"
-					Hover="true" >
+			SortMode="SortMode.Multiple"
+			Hover="true">
 				<Columns>
-					<PropertyColumn Property="x => x.Id" Title="ID" />
-					<PropertyColumn Property="x => x.Nome" Title="Nome" />
-					<PropertyColumn Property="x => x.Sigla" Title="Sigla" />
-					<PropertyColumn Property="x => x.Email" Title="E-mail" />
-					<PropertyColumn Property="x => x.Telefone" Title="Telefone" />
-					<TemplateColumn StickyRight="true" Title="Ações" Sortable="false" >
+					<PropertyColumn Property="x=> x.Id" Title="ID" />
+					<PropertyColumn Property="x=> x.Nome" Title="Nome" />
+					<PropertyColumn Property="x=> x.Sigla" Title="Sigla" />
+					<PropertyColumn Property="x=> x.Email" Title="E-mail" />
+					<PropertyColumn Property="x=> x.Telefone" Title="Telefone" />
+
+					<TemplateColumn StickyRight="true" Title="Ações" Sortable="false">
 						<CellTemplate>
-							<MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" />
-							<MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" />
+							<MudIconButton Icon="@Icons.Material.Filled.Edit"
+							Color="Color.Primary"
+							Size="Size.Small" />
+							<MudIconButton Icon="@Icons.Material.Filled.Delete"
+							Color="Color.Error"
+							Size="Size.Small" />
 						</CellTemplate>
 					</TemplateColumn>
 				</Columns>
@@ -49,25 +58,84 @@
 	private bool _dialogOpen;
 	private bool _loading;
 	private readonly DialogOptions _dialogOptions = new()
-	{
-		CloseButton = true,
-		MaxWidth = MaxWidth.Medium,
-		CloseOnEscapeKey = true
-	};
-
+		{
+			CloseButton = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true,
+			CloseOnEscapeKey = true
+		};
 	protected override Task OnInitializedAsync()
 	{
 		return CarregarAsync();
 	}
-
-	private async Task CarregarAsync() {
-		try {
+	private async Task CarregarAsync()
+	{
+		try
+		{
 			_loading = true;
 			StateHasChanged();
 			_departamentos = await departamentoServico.ObterTodosAsync();
-		} catch(Exception e) {
-			SnackBar.Add($"Erro ao carregar departamentos: {e.Message}", Severity.Error);
+
+		}
+		catch (Exception e)
+		{
+			Snackbar.Add($"Erro ao carregar departamentos : {e.Message}", Severity.Error);
+		}
+		finally
+		{
+			_loading = false;
+			StateHasChanged(); // Força a atualização da UI
 		}
 	}
 
+	private async Task ShowDialog(string id)
+	{
+		try
+		{
+			_dialogOpen = true;
+			StateHasChanged();
+			var parameters = new DialogParameters();
+			if (!string.IsNullOrEmpty(id) && int.TryParse(id, out int Id))
+			{
+				var departamento = await departamentoServico.ObterPorIdAsync(Id);
+				if (departamento != null)
+				{
+					parameters.Add("Model", new Departamento
+						{
+							Id = departamento.Id,
+							Nome = departamento.Nome,
+							Sigla = departamento.Sigla,
+							Email = departamento.Email,
+							Telefone = departamento.Telefone
+
+						});
+				}
+				else
+				{
+					Snackbar.Add("Departamento não Encontrado", Severity.Warning);
+					return;
+				}
+			}
+			else
+			{
+				parameters.Add("Model", new Departamento());
+			}
+			var title = string.IsNullOrEmpty(id) ? "Novo Departamento" : "Editar Departamento";
+			var dialog = DialogService.Show<DialogDepartamento>(title, parameters, _dialogOptions);
+			var result = await dialog.Result;
+			if (!result.Canceled){
+				await CarregarAsync();
+			}
+
+		}
+		catch (Exception e)
+		{
+			Snackbar.Add($"Erro ao abrir o formulário de dialogo: {e.Message}", Severity.Warning);
+		}
+		finally
+		{
+			_dialogOpen = false;
+			StateHasChanged(); // Força a atualização da UI
+		}
+	}
 }
