@@ -1,0 +1,40 @@
+﻿@page "/departamentos"
+@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@inject DepartamentoService departamentoServico
+@inject IDialogService DialogService
+@inject ISnackbar SnackBar
+
+<PageTitle>Departamentos</PageTitle>
+<MudCard>
+
+</MudCard>
+
+@code {
+
+	private List<Departamento> _departamentos = new();
+	private bool _dialogOpen;
+	private bool _loading;
+	private readonly DialogOptions _dialogOptions = new()
+	{
+		CloseButton = true,
+		MaxWidth = MaxWidth.Medium,
+		CloseOnEscapeKey = true
+	};
+
+	protected override Task OnInitializedAsync()
+	{
+		return CarregarAsync();
+	}
+
+	private async Task CarregarAsync() {
+		try {
+			_loading = true;
+			StateHasChanged();
+			_departamentos = await departamentoServico.ObterTodosAsync();
+		} catch(Exception e) {
+			SnackBar.Add($"Erro ao carregar departamentos: {e.Message}", Severity.Error);
+		}
+	}
+
+}

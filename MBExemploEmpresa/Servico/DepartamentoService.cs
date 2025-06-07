@@ -73,7 +73,7 @@ namespace MBExemploEmpresa.Servico
             return departamento;
         }
 
-        public async Task<Departamento> BuscarPorNomeAsync(string nome)
+        public async Task<List<Departamento>> BuscarPorNomeAsync(string nome)
         {
             var departamentos = new List<Departamento>();
             using (var connection = new SqlConnection(_connectionString))
@@ -101,8 +101,8 @@ namespace MBExemploEmpresa.Servico
                         });
                     }
                 }
+             
             }
-
             return departamentos;
         }
 
