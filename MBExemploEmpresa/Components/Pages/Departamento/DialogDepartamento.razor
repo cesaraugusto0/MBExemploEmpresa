@@ -2,7 +2,7 @@
 @using MBExemploEmpresa.Servico
 @using MudBlazor
 @inject DepartamentoService departamentoServico
-@inject IDialogService DialogService
+@inject IDialogService Dialog
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -70,7 +70,7 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
     [Parameter] public Departamento Model { get; set; } = new();
     private bool _saving;
 
@@ -82,9 +82,9 @@
             Console.WriteLine($"Salvando departamento: {Model.Nome}"); // Debug
 
             if (Model.Id == 0)
-                await DepartamentoServico.AdicionarDepartamentoAsync(Model);
+                await departamentoServico.AdicionarDepartamentoAsync(Model);
             else
-                await DepartamentoServico.AtualizarDepartamentoAsync(Model);
+                await departamentoServico.AtualizarDepartamentoAsync(Model);
 
             Snackbar.Add(
               Model.Id == 0

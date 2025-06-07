@@ -112,7 +112,7 @@ namespace MBExemploEmpresa.Servico
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand("INSERT INTO Departamentos (Nome,Sigla, Email, Telefone)" +
-                    "VALUES (@Nome,@Sigla,@Email,@Telefone",connection);
+                    "VALUES (@Nome,@Sigla,@Email,@Telefone)",connection);
                 command.Parameters.AddWithValue("@Nome",departamento.Nome);
                 command.Parameters.AddWithValue("@Sigla", departamento.Sigla);
                 command.Parameters.AddWithValue("@Email", departamento.Email ?? (object)DBNull.Value);
@@ -143,7 +143,7 @@ namespace MBExemploEmpresa.Servico
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("DELETE FROM Departamento WHERE Id = @Id", connection);
+                var command = new SqlCommand("DELETE FROM Departamentos WHERE Id = @Id", connection);
                 command.Parameters.AddWithValue("@Id", id);
                 await command.ExecuteNonQueryAsync();
             }
