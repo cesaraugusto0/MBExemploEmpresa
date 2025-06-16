@@ -1,0 +1,160 @@
+﻿@page "/cargos"
+@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@using MudBlazor
+@inject CargoService cargoServico
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Cargos</PageTitle>
+<MudCard>
+	<MudCardContent>
+		<MudText Typo="Typo.h6" Class="mb-4">Cadastrar Cargos</MudText>
+	</MudCardContent>
+	<MudPaper Class="d-flex justify-end flex-grow-1 mb-s" Elevation="0">
+		<MudButton Color="Color.Primary"
+				   Variant="Variant.Filled"
+				   StartIcon="@Icons.Material.Filled.Add" onclick="@(()=> ShowDialog(string.Empty))">
+			Adicionar Novo Cargo
+		</MudButton>
+	</MudPaper>
+</MudCard>
+
+@if (_loading)
+	{
+		<MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="my-7" />
+	}
+	else
+	{
+	<MudDataGrid Items="@_cargos" SortMode="SortMode.Multiple" Hover="true">
+		<Columns>
+			<PropertyColumn Property="x => x.Id" title="ID"></PropertyColumn>
+			<PropertyColumn Property="x => x.Nome" title="Nome"></PropertyColumn>
+			<PropertyColumn Property="x => x.Descricao" title="Descricao"></PropertyColumn>
+			<PropertyColumn Property="x => x.SalarioBase" title="Salario Base"></PropertyColumn>
+			<PropertyColumn Property="x => x.NomeDepartamento" title="Nome Departamento"></PropertyColumn>
+			<TemplateColumn StickyRight="true" Title="Ações" Sortable="false">
+				<CellTemplate>
+					<MudIconButton Icon="@Icons.Material.Filled.Edit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" onclick="@(()=> ShowDialog(context.Item.Id.ToString()))" />
+					<MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" onclick="@(()=> ConfirmDelete(context.Item))" />
+				</CellTemplate>
+			</TemplateColumn>
+		</Columns>
+		<PagerContent>
+			<MudDataGridPager T="Cargo"></MudDataGridPager>
+		</PagerContent>
+	</MudDataGrid>
+	}
+@code {
+	private List<Cargo> _cargos = new();
+	private bool _dialogOpen;
+	private bool _loading;
+
+	private readonly DialogOptions _dialogOptions = new()
+		{
+			CloseButton = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true,
+			CloseOnEscapeKey = true
+		};
+
+	protected override Task OnInitializedAsync()
+	{
+		return CarregarAsync();
+	}
+
+	private async Task CarregarAsync()
+	{
+		try
+		{
+			_loading = true;
+			StateHasChanged();
+			_cargos = await cargoServico.ObterTodosAsync();
+		}
+		catch (Exception err)
+		{
+			Snackbar.Add($"Erro ao carregar os cargos : {err.Message}", Severity.Error);
+		}
+		finally
+		{
+			_loading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task ShowDialog(string id)
+	{
+
+		try
+		{
+			_dialogOpen = true;
+			StateHasChanged();
+			var parameters = new DialogParameters();
+
+			if (!string.IsNullOrEmpty(id) && int.TryParse(id, out int Id))
+			{
+				var cargo = await cargoServico.ObterPorIdAsync(Id);
+				if (cargo != null)
+				{
+					parameters.Add("Model", new Cargo
+						{
+							Id = cargo.Id,
+							Nome = cargo.Nome,
+							Descricao = cargo.Descricao,
+							SalarioBase = cargo.SalarioBase,
+							NomeDepartamento = cargo.NomeDepartamento
+						});
+				}
+				else
+				{
+					Snackbar.Add("Departamento nao encontrado.", Severity.Warning);
+					return;
+				}
+			}
+			else
+			{
+				parameters.Add("Model", new Cargo());
+			}
+			var title = string.IsNullOrEmpty(id) ? "Novo cargo" : "Editar cargo";
+			var dialog = DialogService.Show<DialogCargo>(title, parameters, _dialogOptions);
+			var result = await dialog.Result;
+			if (!result.Canceled)
+			{
+				await CarregarAsync();
+			}
+		}
+		catch (Exception err)
+		{
+			Snackbar.Add($"Erro ao abrir o formulario : {err.Message}", Severity.Error);
+		}
+		finally
+		{
+			_loading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task ConfirmDelete(Cargo c)
+	{
+		try
+		{
+			bool? ok = await DialogService.ShowMessageBox(
+				"Confirmação",
+				$"Excluir cargo \"{c.Nome}\"?",
+				yesText: "Sim",
+				cancelText: "Não");
+
+			if (ok == true)
+			{
+				await cargoServico.DeletarCargoAsync(c.Id);
+				Snackbar.Add("Cargo removido.", Severity.Success);
+				await CarregarAsync();
+			}
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine($"Erro ao deletar: {e}"); // Debug
+			Snackbar.Add($"Erro ao excluir cargo: {e.Message}", Severity.Error);
+		}
+	}
+}

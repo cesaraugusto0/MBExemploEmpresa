@@ -1,0 +1,178 @@
+﻿@page "/funcionarios"
+@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@using MudBlazor
+@inject FuncionarioService funcionarioServico
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Funcionários</PageTitle>
+
+<MudCard>
+    <MudCardContent>
+        <MudText Typo="Typo.h6" Class="mb-4">Funcionários Cadastrados</MudText>
+    </MudCardContent>
+    <MudPaper Class="d-flex justify-end flex-grow-1 mb-4 px-4" Elevation="0">
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(() => ShowDialog(string.Empty))">
+            Adicionar Novo Funcionário
+        </MudButton>
+    </MudPaper>
+    @if (_loading)
+    {
+        <div class="d-flex justify-center my-7">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else
+    {
+        <MudDataGrid T="Funcionario" Items="@_funcionarios" SortMode="SortMode.Multiple" Hover="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Id" Title="ID" />
+                <PropertyColumn Property="x => x.Nome" Title="Nome" />
+                <PropertyColumn Property="x => x.CPF" Title="CPF" />
+                <PropertyColumn Property="x => x.NomeCargo" Title="Cargo" />
+                <PropertyColumn Property="x => x.NomeDepartamento" Title="Departamento" />
+
+
+                @* Coluna customizada para exibir o status "Ativo" de forma mais visual *@
+                <TemplateColumn Title="Status" SortBy="@(new Func<Funcionario, object>(x => x.Ativo))">
+                    <CellTemplate>
+                        @if (context.Item.Ativo)
+                        {
+                            <MudChip Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">Ativo</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small">Inativo</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+
+                <TemplateColumn StickyRight="true" Title="Ações" Sortable="false">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ShowDialog(context.Item.Id.ToString()))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" OnClick="@(() => ConfirmDelete(context.Item))" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="Funcionario" />
+            </PagerContent>
+        </MudDataGrid>
+    }
+</MudCard>
+
+@code {
+	private List<Funcionario> _funcionarios = new();
+	private bool _dialogOpen;
+	private bool _loading;
+
+	private readonly DialogOptions _dialogOptions = new()
+		{
+			CloseButton = true,
+			MaxWidth = MaxWidth.Medium,
+			FullWidth = true,
+			CloseOnEscapeKey = true
+		};
+
+    protected override Task OnInitializedAsync()
+    {
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            _loading = true;
+            _funcionarios = await funcionarioServico.ObterTodosAsync();
+        }
+        catch (Exception err)
+        {
+            Snackbar.Add($"Erro ao carregar funcionários: {err.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ShowDialog(string id)
+    {
+        try
+        {
+            var parameters = new DialogParameters();
+
+            if (!string.IsNullOrEmpty(id) && int.TryParse(id, out int Id))
+            {
+                var funcionario = await funcionarioServico.ObterPorIdAsync(Id);
+                if (funcionario != null)
+                {
+                    parameters.Add("Model", new Funcionario
+                        {
+                            Id = funcionario.Id,
+                            Nome = funcionario.Nome,
+                            CPF = funcionario.CPF,
+                            NomeCargo = funcionario.NomeCargo,
+                            NomeDepartamento = funcionario.NomeDepartamento                  
+                         
+                        });
+                }
+                else
+                {
+                    Snackbar.Add("Funcionário não encontrado.", Severity.Warning);
+                    return;
+                }
+            }
+            else
+            {
+                // Para um novo funcionário, passamos um modelo vazio.
+                parameters.Add("Model", new Funcionario());
+            }
+
+            var title = string.IsNullOrEmpty(id) ? "Novo Funcionário" : "Editar Funcionário";
+
+            // ATENÇÃO: Precisamos criar o componente DialogFuncionario.razor
+            var dialog = DialogService.Show<DialogFuncionario>(title, parameters, _dialogOptions);
+
+            var result = await dialog.Result;
+            if (!result.Canceled)
+            {
+                await CarregarAsync();
+            }
+        }
+        catch (Exception err)
+        {
+            Snackbar.Add($"Erro ao abrir o formulário: {err.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDelete(Funcionario f)
+    {
+        try
+        {
+            bool? ok = await DialogService.ShowMessageBox(
+                "Confirmação",
+                $"Tem certeza que deseja excluir o funcionário \"{f.Nome}\"?",
+                yesText: "Sim, Excluir",
+                cancelText: "Não, Cancelar");
+
+            if (ok == true)
+            {
+                await funcionarioServico.DeletarFuncionarioAsync(f.Id);
+                Snackbar.Add("Funcionário removido com sucesso.", Severity.Success);
+                await CarregarAsync();
+            }
+        }
+        catch (Exception e)
+        {
+            Snackbar.Add($"Erro ao excluir funcionário: {e.Message}", Severity.Error);
+        }
+    }
+
+	
+
+}

@@ -7,17 +7,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add MudBlazor services
 builder.Services.AddMudServices();
 
-// Registro da String de conexão
+// Registro da string de conexao com SQL
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// Injeção de dependencia - Registrando os serviços
-builder.Services.AddScoped(provider => new DepartamentoService(connectionString));
-//builder.Services.AddScoped(provider => new CargoService(connectionString));
-//builder.Services.AddScoped(provider => new FuncionarioService(connectionString));
+// Injeï¿½ï¿½o de dependencia - registrando os serviï¿½os
+
+builder.Services.AddScoped(provider=> new DepartamentoService(connectionString));
+builder.Services.AddScoped(provider => new CargoService(connectionString));
+builder.Services.AddScoped(provider => new FuncionarioService(connectionString));
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+
 
 var app = builder.Build();
 

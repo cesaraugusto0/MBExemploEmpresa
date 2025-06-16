@@ -1,0 +1,150 @@
+﻿@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@using MudBlazor
+@inject CargoService cargoServico
+@inject DepartamentoService departamentoServico
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Badge" Class="mr-2" />
+            @(Model.Id == 0 ? "Novo Cargo" : "Editar Cargo")
+        </MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <EditForm Model="Model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudGrid Spacing="2">
+
+                @* O campo mais importante: um dropdown para selecionar o Departamento. *@
+                <MudItem xs="12">
+                    <MudSelect T="int"
+                               Label="Departamento"
+                               @bind-Value="Model.DepartamentoId"
+                               For="@(() => Model.DepartamentoId)"
+                               Required="true"
+                               RequiredError="Selecione um departamento.">
+                        @foreach (var depto in _departamentos)
+                        {
+                            <MudSelectItem Value="@depto.Id">@depto.Nome</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="8">
+                    <MudTextField Label="Nome do Cargo"
+                                  @bind-Value="Model.Nome"
+                                  For="@(() => Model.Nome)"
+                                  Required="true"
+                                  Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    @* Usamos MudNumericField para campos numéricos como decimal. *@
+                    <MudNumericField @bind-Value="Model.SalarioBase"
+                                     For="@(() => Model.SalarioBase)"
+                                     Label="Salário Base"
+                                     Required="true"
+                                     Format="C2"
+                                     Culture="@(new System.Globalization.CultureInfo("pt-BR"))" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Descrição"
+                                  @bind-Value="Model.Descricao"
+                                  For="@(() => Model.Descricao)"
+                                  Lines="3"
+                                  Immediate="true" />
+                </MudItem>
+
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Disabled="@_saving"
+                   OnClick="SaveAsync">
+            <ChildContent>
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Salvando...</span>
+                }
+                else
+                {
+                    <span>@(Model.Id == 0 ? "Salvar" : "Atualizar")</span>
+                }
+            </ChildContent>
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public Cargo Model { get; set; } = new();
+
+    private bool _saving;
+    private List<Departamento> _departamentos = new();
+
+
+    /// Este método é executado quando o componente é inicializado.
+    /// É o lugar perfeito para carregar dados necessários para o formulário,
+    /// como a lista de departamentos para o nosso dropdown.
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _departamentos = await departamentoServico.ObterTodosAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar departamentos: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        // Forçar um pequeno atraso para a UI atualizar e mostrar o estado de "salvando".
+        await Task.Delay(1);
+
+        try
+        {
+            if (Model.Id == 0)
+            {
+                await cargoServico.AdicionarCargoAsync(Model);
+            }
+            else
+            {
+                await cargoServico.AtualizarCargoAsync(Model);
+            }
+
+            Snackbar.Add(
+              Model.Id == 0
+                ? "Cargo criado com sucesso!"
+                : "Cargo atualizado com sucesso!",
+              Severity.Success);
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao salvar o cargo: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

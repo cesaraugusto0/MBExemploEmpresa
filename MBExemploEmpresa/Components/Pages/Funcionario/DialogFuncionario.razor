@@ -1,0 +1,175 @@
+﻿@using MBExemploEmpresa.Entidades
+@using MBExemploEmpresa.Servico
+@using MudBlazor
+@inject FuncionarioService funcionarioServico
+@inject DepartamentoService departamentoServico
+@inject CargoService cargoServico
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Groups" Class="mr-2" />
+            @(Model.Id == 0 ? "Novo Funcionário" : "Editar Funcionário")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="Model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Nome Completo" @bind-Value="Model.Nome" For="@(() => Model.Nome)" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="CPF" @bind-Value="Model.CPF" For="@(() => Model.CPF)" Required="true" Mask="@(new PatternMask("000.000.000-00"))" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Label="Data de Nascimento" @bind-Date="Model.DataNascimento" For="@(() => Model.DataNascimento)" Required="true" Editable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Nome da Mãe" @bind-Value="Model.NomeMae" For="@(() => Model.NomeMae)" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Nome do Pai" @bind-Value="Model.NomePai" For="@(() => Model.NomePai)" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="RG" @bind-Value="Model.RG" For="@(() => Model.RG)" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="E-mail" @bind-Value="Model.Email" For="@(() => Model.Email)" InputType="InputType.Email" />
+                </MudItem>
+
+                @* --- Divisor visual para separar as seções --- *@
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                </MudItem>
+
+                @* --- Dados Profissionais --- *@
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int" Label="Departamento" @bind-Value="Model.DepartamentoId" For="@(() => Model.DepartamentoId)" Required="true">
+                        @foreach (var depto in _departamentos)
+                        {
+                            <MudSelectItem Value="@depto.Id">@depto.Nome</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int" Label="Cargo" @bind-Value="Model.CargoId" For="@(() => Model.CargoId)" Required="true">
+                        @foreach (var cargo in _cargos)
+                        {
+                            <MudSelectItem Value="@cargo.Id">@cargo.Nome</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="Model.Salario" Label="Salário" For="@(() => Model.Salario)" Required="true" Format="C2" Culture="@(new System.Globalization.CultureInfo("pt-BR"))" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Label="Data de Admissão" @bind-Date="Model.DataAdmissao" For="@(() => Model.DataAdmissao)" Required="true" Editable="true" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@_saving" OnClick="SaveAsync">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Salvando...</span>
+            }
+            else
+            {
+                <span>@(Model.Id == 0 ? "Salvar" : "Atualizar")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+	
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public Funcionario Model { get; set; } = new();
+
+    private bool _saving;
+    private List<Departamento> _departamentos = new();
+    private List<Cargo> _cargos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Carrega os dados para ambos os dropdowns em paralelo para otimizar.
+            
+            // Task.WhenAll (execução sequencial)
+            // departamentos = await departamentoServico.ObterTodosAsync(); // Digamos que leve 200ms
+            // _cargos = await cargoServico.ObterTodosAsync();              // Digamos que leve 250ms
+            // A aplicação envia o comando SQL para buscar departamentos.           
+            // Espera 200ms até a resposta chegar.
+            // A aplicação envia o comando SQL para buscar cargos.
+            // Espera 250ms até a resposta chegar.
+            // Tempo Total de Espera: 200ms + 250ms = 450ms
+            // Ao usar Task.WhenAll, o tempo total de carregamento do seu formulário é ditado pela operação mais lenta,
+            // e não pela soma de todas as operações.Em um cenário com muitas chamadas independentes(carregar departamentos, cargos, cidades, turnos, etc.), 
+            // essa otimização pode fazer uma diferença significativa na percepção de velocidade do usuário.
+
+            await Task.WhenAll(
+                LoadDepartamentosAsync(),
+                LoadCargosAsync()
+            );
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao inicializar o formulário: {ex.Message}", Severity.Error);
+        }
+    }
+    // Princípio da Responsabilidade Única (a letra 'S' do SOLID) sugere que um método deve ter apenas uma razão para existir.
+    // O método LoadDepartamentosAsync tem uma única e clara responsabilidade: buscar e carregar a lista de departamentos.
+    private async Task LoadDepartamentosAsync()
+    {
+        _departamentos = await departamentoServico.ObterTodosAsync();
+    }
+
+    // O método LoadCargosAsync tem a responsabilidade de buscar e carregar a lista de cargos.
+    private async Task LoadCargosAsync()
+    {
+        _cargos = await cargoServico.ObterTodosAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        await Task.Delay(1); // Garante que a UI atualize para o estado de "salvando"
+
+        try
+        {
+            if (Model.Id == 0)
+                await funcionarioServico.AdicionarFuncionarioAsync(Model);
+            else
+                await funcionarioServico.AtualizarFuncionarioAsync(Model);
+
+            Snackbar.Add(
+              Model.Id == 0
+                ? "Funcionário criado com sucesso!"
+                : "Funcionário atualizado com sucesso!",
+              Severity.Success);
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao salvar funcionário: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
